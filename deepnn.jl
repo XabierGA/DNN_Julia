@@ -2,7 +2,8 @@ using Random
 using LinearAlgebra
 using Statistics
 using Plots 
-
+using DelimitedFiles
+pyplot()
 function sigmoid(X)
 
     n ,m = size(X)
@@ -18,7 +19,6 @@ function sigmoid(X)
     return sigma , X
 
 end
-
 
 function relu(X)
 
@@ -41,10 +41,10 @@ function init_param(layer_dimensions)
 
     param = Dict()
     
-    for l=2:length(layer_dimensions)
+    for l=1:length(layer_dimensions)-1
 
-        param[string("W_" , string(l-1))] = rand(layer_dimensions[l] , layer_dimensions[l-1])*0.1
-        param[string("b_" , string(l-1))] = zeros(layer_dimensions[l] , 1)
+        param[string("W_" , string(l))] = 0.1f0*randn(layer_dimensions[l+1] , layer_dimensions[l])
+        param[string("b_" , string(l))] = zeros(layer_dimensions[l+1] , 1)
     
     end
 
@@ -124,13 +124,12 @@ function model_backwards_step(A_l , Y , caches)
 
     Y = reshape(Y , size(A_l))
     dA_l = (-(Y./A_l) .+ ((1 .- Y)./( 1 .- A_l)))
-  #  println("dA_l" , dA_l)
     current_cache = caches[L]
     grads[string("dW_" , string(L))] , grads[string("db_" , string(L))] , grads[string("dA_" , string(L-1))] = backward_activation_step(dA_l , current_cache , "sigmoid")
-    for l=reverse(1:L-1)
+    for l=reverse(0:L-2)
+        current_cache = caches[l+1]
+        grads[string("dW_" , string(l+1))] , grads[string("db_" , string(l+1))] , grads[string("dA_" , string(l))] = backward_activation_step(grads[string("dA_" , string(l+1))] , current_cache , "relu")
 
-        current_cache = caches[l]
-        grads[string("dW_" , string(l))] , grads[string("db_" , string(l))] , grads[string("dA_" , string(l-1))] = backward_activation_step(grads[string("dA_" , string(l))] , current_cache , "relu")
     end 
 
     return grads 
@@ -141,10 +140,10 @@ function update_param(parameters , grads , learning_rate)
 
     L = Int(length(parameters)/2)
 
-    for l=1:(L)
+    for l=0:(L-1)
 
-        parameters[string("W_" , string(l))] -= learning_rate.*grads[string("dW_" , string(l))]
-        parameters[string("b_",string(l))] -= learning_rate.*grads[string("db_",string(l))]
+        parameters[string("W_" , string(l+1))] -= learning_rate.*grads[string("dW_" , string(l+1))]
+        parameters[string("b_",string(l+1))] -= learning_rate.*grads[string("db_",string(l+1))]
 
     end 
 
@@ -178,9 +177,9 @@ function model_forward_step(X , params)
     A = X
     L = length(params)/2
 
-    for l=2:L
+    for l=1:L-1
         A_pre = A
-        A , cache = calculate_activation_forward(A_pre , params[string("W_" , string(Int(l-1)))] , params[string("b_" , string(Int(l-1)))] , "relu")
+        A , cache = calculate_activation_forward(A_pre , params[string("W_" , string(Int(l)))] , params[string("b_" , string(Int(l)))] , "relu")
         push!(all_caches , cache)
     end 
     A_l , cache = calculate_activation_forward(A , params[string("W_" , string(Int(L)))] , params[string("b_" , string(Int(L)))] , "sigmoid")
@@ -191,40 +190,53 @@ function model_forward_step(X , params)
 
 end
 
+function check_accuracy(A_L , Y)
+    A_L = reshape(A_L , size(Y))
+    return sum((A_L.>0.5) .== Y)/length(Y)
+end 
 
 function train_nn(layers_dimensions , X , Y , learning_rate , n_iter)
 
     params = init_param(layers_dimensions)
     costs = []
     iters = []
+    accuracy = []
    # anim = @animate for i=1:n_iter
     for i=1:n_iter
-        println("Params ->" , params["W_4"])
+       # println("Params ->" , params["W_4"])
      #   plt = plot(1, title = "Cost function vs N_Iter")
         A_l , caches  = model_forward_step(X , params)
       #  println("A_l" , A_l)
         cost = cost_function(A_l , Y)
-        
+        acc = check_accuracy(A_l , Y)
         grads  = model_backwards_step(A_l , Y , caches)
-        println("Grads ->" , grads["dW_4"])
+        #println("Grads ->" , grads["dW_4"])
         params = update_param(params , grads , learning_rate)
         println("Iteration ->" , i)
         println("Cost ->" , cost)
+        println("Accuracy -> " , acc)
        # println("Iters -> " , iters)
         push!(iters , i)
         push!(costs , cost)
+        push!(accuracy , acc)
       #  plot!(iters, costs )
         
     end 
-    plt = plot(iters , costs))
-    gui(plt)
+    plt = plot(iters , costs)
+    plt_2 = plot(iters , accuracy)
+    plot(plt , plt_2 , layout = (2,1))
+    savefig("cost_plot_rand.pdf")
+    #plot(iters , accuracy)
     return params , costs 
 
 end
 
-X = rand(10,1000)
-Y = rand([0,1] , 1000)
 
-layers_dimensions = (10 , 50 ,5, 3, 1)
+X = rand(10,500)
+Y = rand([0,1] , 500)
 
-param , cost = train_nn(layers_dimensions , X , Y , 0.05 , 1000)
+
+layers_dimensions = (10 , 16 , 32 , 64 , 128 , 256 , 128 , 64 , 32 ,16 , 8 , 1)
+
+param , cost = train_nn(layers_dimensions , X , Y , 8.00 , 10000)
+
