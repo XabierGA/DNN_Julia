@@ -5,35 +5,12 @@ using Plots
 using DelimitedFiles
 pyplot()
 function sigmoid(X)
-
-    n ,m = size(X)
-    sigma = zeros(n,m)
-    for i=1:n
-        for j=1:m
-
-            sigma[i,j] = 1/(1 + exp(-X[i,j]))
-            
-        end
-    end 
-
-    return sigma , X
-
+    sigma = 1 ./(1 .+ exp.(.-X))
+    return sigma , X 
 end
-
 function relu(X)
-
-    n , m = size(X)
-    rel = zeros(n,m)
-    for i=1:n
-        for j=1:m
-
-            rel[i,j] = max( 0 , X[i , j])
-            
-        end
-    end 
-
+    rel = max.(0,X)
     return rel , X
-
 end
 
 
@@ -55,8 +32,7 @@ end
 
 function forward_linear(A , w , b)
 
-    Z = w*A 
-    Z = Z .+ b
+    Z = w*A .+ b
     cache = (A , w , b)
 
     return Z,cache
@@ -76,19 +52,16 @@ function backward_linear_step(dZ , cache)
     A_prev , W , b = cache
 
     m = size(A_prev)[2]
+
     dW = dZ * (A_prev')/m
     db = sum(dZ , dims = 2)/m
     dA_prev = (W')* dZ
-   # println("dW ->" , dW)
-   # println("dA_prev ->" , db)
-   # println("dA_prev" , dA_prev)
     return dW , db , dA_prev 
 
 end
 
 function backward_relu(dA , cache_activation)
     return dA.*(cache_activation.>0)
-
 end 
 
 function backward_sigmoid(dA , cache_activation)
@@ -156,7 +129,6 @@ function calculate_activation_forward(A_pre , W , b , function_type)
     if (function_type == "sigmoid")
 
         Z , linear_step_cache = forward_linear(A_pre , W , b)
-      #  println("Z" , Z)
         A , activation_step_cache = sigmoid(Z)
 
     elseif (function_type == "relu")
@@ -201,42 +173,34 @@ function train_nn(layers_dimensions , X , Y , learning_rate , n_iter)
     costs = []
     iters = []
     accuracy = []
-   # anim = @animate for i=1:n_iter
     for i=1:n_iter
-       # println("Params ->" , params["W_4"])
-     #   plt = plot(1, title = "Cost function vs N_Iter")
         A_l , caches  = model_forward_step(X , params)
-      #  println("A_l" , A_l)
         cost = cost_function(A_l , Y)
         acc = check_accuracy(A_l , Y)
         grads  = model_backwards_step(A_l , Y , caches)
-        #println("Grads ->" , grads["dW_4"])
         params = update_param(params , grads , learning_rate)
         println("Iteration ->" , i)
         println("Cost ->" , cost)
         println("Accuracy -> " , acc)
-       # println("Iters -> " , iters)
         push!(iters , i)
         push!(costs , cost)
         push!(accuracy , acc)
-      #  plot!(iters, costs )
         
     end 
-    plt = plot(iters , costs)
-    plt_2 = plot(iters , accuracy)
+    plt = plot(iters , costs ,title =  "Cost Function vs Number of Iterations" , lab ="J")
+    xaxis!("N_Iterations")
+    yaxis!("J")
+    plt_2 = plot(iters , accuracy ,title =  "Accuracy vs Number of Iterations" , lab ="Acc" , color = :green)
+    xaxis!("N_Iterations")
+    yaxis!("Accuracy")
     plot(plt , plt_2 , layout = (2,1))
-    savefig("cost_plot_rand.pdf")
-    #plot(iters , accuracy)
+    savefig("cost_plot_rand.png")
     return params , costs 
 
 end
 
 
-X = rand(10,500)
-Y = rand([0,1] , 500)
 
 
-layers_dimensions = (10 , 16 , 32 , 64 , 128 , 256 , 128 , 64 , 32 ,16 , 8 , 1)
 
-param , cost = train_nn(layers_dimensions , X , Y , 8.00 , 10000)
 
